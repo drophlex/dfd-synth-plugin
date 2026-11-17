@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write
 
 jobs:
   linux-tests:
@@ -26,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-13, macos-15]
+        os: [macos-15]
     steps:
       - uses: actions/checkout@v4
       - name: "configure (universal, Apple Silicon + Intel)"
@@ -55,3 +57,8 @@ jobs:
         with:
           name: DarkFunkDurcalSynt-v2-macOS-${{ matrix.os }}
           path: DarkFunkDurcalSynt-v2-macOS.zip
+      - name: "publish: the release 'v2' (private: only you see it)"
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release view v2 >/dev/null 2>&1 || gh release create v2 --title "Dark Funk Durcal Synt v2 (macOS: AU, VST3, app, KeyLab script)" --notes "Built by CI from main. Unzip, run Install.command (right-click > Open the first time)."
+          gh release upload v2 DarkFunkDurcalSynt-v2-macOS.zip --clobber
