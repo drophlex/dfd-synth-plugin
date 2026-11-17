@@ -21,5 +21,8 @@ echo  VST3:  %CommonProgramFiles%\VST3\Dark Funk Durcal Synt.vst3
 echo  KeyLab: %RS%\DFD_KeyLab_Essential
 echo  Abre tu DAW y busca "Dark Funk Durcal Synt" (Polaris Sound Lab).
 echo  La app independiente esta en esta carpeta: Dark Funk Durcal Synt.exe
+echo  KeyLab Essential + Ableton: conectalo y Live lo enlaza solo.
+echo  3 dias de prueba gratis.
 echo.
+start "" "https://drophlex.github.io/dark-funk-durcal-synt-fm1/plugin.html"
 pause

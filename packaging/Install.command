@@ -20,13 +20,13 @@ mkdir -p "$RS" && rm -rf "$RS/DFD_KeyLab_Essential" && cp -R "KeyLab Essential (
 xattr -dr com.apple.quarantine "$COMP/Dark Funk Durcal Synt.component" "$VST3/Dark Funk Durcal Synt.vst3" ~/Applications/"Dark Funk Durcal Synt.app" "$RS/DFD_KeyLab_Essential" 2>/dev/null || true
 killall -9 AudioComponentRegistrar 2>/dev/null || true
 echo ""
-echo "  Done / Listo."
+echo "  LISTO / DONE"
 echo "  AU:     $COMP"
 echo "  VST3:   $VST3"
 echo "  App:    ~/Applications/Dark Funk Durcal Synt.app"
 echo "  KeyLab: $RS/DFD_KeyLab_Essential"
 echo ""
-echo "  Now restart Ableton Live. / Ahora reinicia Ableton Live."
-echo "  Live > Settings > Link, Tempo & MIDI > Control Surface: DFD_KeyLab_Essential"
-echo ""
-read -n 1 -s -r -p "  Press any key to close / Presiona una tecla para cerrar"
+echo "  1. Reinicia tu DAW / restart your DAW."
+echo "  2. KeyLab Essential + Ableton: conectalo y Live lo enlaza solo / plug it in, Live links it by itself."
+echo "  3. 3 dias de prueba gratis / 3-day free trial."
+osascript -e 'display dialog "Dark Funk Durcal Synt quedó instalado.\n\n• Reinicia tu DAW (Ableton, Logic, etc.).\n• Conecta tu KeyLab Essential: Ableton lo enlaza solo.\n• Tienes 3 días de prueba gratis.\n\nInstalled. Restart your DAW." with title "Polaris Sound Lab" buttons {"Ver guía / Guide", "OK"} default button "OK"' -e 'if button returned of result is "Ver guía / Guide" then open location "https://drophlex.github.io/dark-funk-durcal-synt-fm1/plugin.html"' >/dev/null 2>&1 || true
