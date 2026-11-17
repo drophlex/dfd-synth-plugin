@@ -80,9 +80,8 @@ juce::Label* LnF::createSliderTextBox(juce::Slider& s) {
 class EyeView : public juce::Component {
 public:
     explicit EyeView(DfdProcessor& p) : proc(p) {}
-    // SMEAR: the eye is drawn into an image, then lit like light through a broken screen: warm (ember, rose) on the
-    // left, white-hot in the middle, cold (cyan, steel) on the right; columns of pixels dragged down (a pixel sort),
-    // blocks of mosaic, a soft sideways bloom. Louder and on a stutter or a build: more of all of it.
+    // SMEAR: the eye is drawn into an image (its original bone and blood colours), then columns of pixels are dragged
+    // down (a pixel sort), blocks of mosaic and torn rows appear, and a soft sideways bloom. Louder and on a stutter or a build: more of all of it.
     void paint(juce::Graphics& g) override {
         const int W = juce::jmax(8, getWidth()), H = juce::jmax(8, getHeight());
         if (img.getWidth() != W || img.getHeight() != H) img = juce::Image(juce::Image::ARGB, W, H, true);
@@ -93,29 +92,18 @@ public:
         smear(amt);
         // the bloom under it: the white-hot core, warm to the left, cold to the right
         auto c = getLocalBounds().toFloat().getCentre(); float r = juce::jmin((float)W, (float)H) * 0.42f;
-        juce::ColourGradient core(juce::Colour(0xfffff4e6).withAlpha(0.30f + lv * 0.35f), c.x, c.y, juce::Colour(0x00ff6a4a), c.x + r * 1.4f, c.y, true);
+        juce::ColourGradient core(BONE.withAlpha(0.06f + lv * 0.10f), c.x, c.y, BLOOD.withAlpha(0.0f), c.x + r * 1.4f, c.y, true);
         g.setGradientFill(core); g.fillEllipse(juce::Rectangle<float>(r * 2.8f, r * 1.9f).withCentre(c));
         g.drawImageAt(img, 0, 0);
         // a ghost of it, shifted and soft (the bloom)
-        g.setOpacity(0.25f + lv * 0.2f); g.drawImage(img, juce::Rectangle<float>(-6.0f, 0.0f, (float)W + 12.0f, (float)H));
+        g.setOpacity(0.12f + lv * 0.12f); g.drawImage(img, juce::Rectangle<float>(-6.0f, 0.0f, (float)W + 12.0f, (float)H));
     }
 private:
     juce::Image img; juce::Random rnd;
-    static juce::Colour split(float u) {                 // 0 left .. 1 right
-        static const juce::uint32 C[] = {0xffff3a14, 0xffff4f2e, 0xffff8a66, 0xfffff4e6, 0xff7fe0ff, 0xff22b0ff, 0xff2a5fd6};
-        float p = juce::jlimit(0.0f, 0.9999f, u) * 6.0f; int i = (int)p;
-        return juce::Colour(C[i]).interpolatedWith(juce::Colour(C[i + 1]), p - (float)i);
-    }
     void smear(float amt) {
         const int W = img.getWidth(), H = img.getHeight();
         juce::Image::BitmapData bd(img, juce::Image::BitmapData::readWrite);
-        juce::Colour lut[64]; for (int k = 0; k < 64; ++k) lut[k] = split(k / 63.0f);
-        for (int y = 0; y < H; ++y)                       // the warm / cold split (keeps the brightness)
-            for (int x = 0; x < W; ++x) {
-                auto px = bd.getPixelColour(x, y); if (px.getAlpha() == 0) continue;
-                auto tc = lut[x * 63 / juce::jmax(1, W - 1)]; float br = px.getPerceivedBrightness();
-                bd.setPixelColour(x, y, tc.withMultipliedBrightness(juce::jmin(1.0f, br * 1.25f)).withAlpha(px.getAlpha()));
-            }
+        // (the original colours: bone and blood, no tint)
         const int n = 6 + (int)(amt * 60);               // pixel sort: a column dragged down from where it is
         for (int k = 0; k < n; ++k) {
             int x = rnd.nextInt(W), y0 = rnd.nextInt(juce::jmax(1, H * 4 / 5)), len = (int)(H * (0.04f + rnd.nextFloat() * (0.12f + amt * 0.45f)));
@@ -130,7 +118,7 @@ private:
             int nb = 1 + (int)(amt * 5);
             for (int k = 0; k < nb; ++k) {
                 int s = 4 + rnd.nextInt(juce::jmax(2, H / 12)), bx = rnd.nextInt(juce::jmax(1, W - 3 * s)), by = rnd.nextInt(juce::jmax(1, H - s));
-                auto col = bd.getPixelColour(bx + s / 2, by + s / 2); if (col.getAlpha() < 20) col = split(bx / (float)W).withAlpha(0.5f);
+                auto col = bd.getPixelColour(bx + s / 2, by + s / 2); if (col.getAlpha() < 20) col = (rnd.nextBool() ? BONE : BLOOD).withAlpha(0.5f);
                 int bw = s * (1 + rnd.nextInt(3));
                 for (int y = by; y < juce::jmin(H, by + s); ++y) for (int x = bx; x < juce::jmin(W, bx + bw); ++x) bd.setPixelColour(x, y, col);
             }
