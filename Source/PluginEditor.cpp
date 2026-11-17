@@ -520,7 +520,8 @@ void DfdEditor::applyLanguage() {
 
 void DfdEditor::showHelp(bool show) {
     if (show && help == nullptr) {
-        help = std::make_unique<HelpPanel>([this] { juce::MessageManager::callAsync([sp = juce::Component::SafePointer<DfdEditor>(this)] { if (sp) sp->showHelp(false); }); });
+        juce::Component::SafePointer<DfdEditor> sp(this);
+        help = std::make_unique<HelpPanel>([sp] { juce::MessageManager::callAsync([sp] { if (sp) sp->showHelp(false); }); });
         content.addAndMakeVisible(*help); help->setBounds(0, 0, W, H); help->toFront(true);
     } else if (!show) {
         help.reset();
