@@ -22,7 +22,11 @@ jobs:
         with: { name: screenshots, path: shots }
 
   macos:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-13, macos-15]
     steps:
       - uses: actions/checkout@v4
       - name: "configure (universal, Apple Silicon + Intel)"
@@ -49,5 +53,5 @@ jobs:
           ditto -c -k --keepParent "$P" DarkFunkDurcalSynt-v2-macOS.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: DarkFunkDurcalSynt-v2-macOS
+          name: DarkFunkDurcalSynt-v2-macOS-${{ matrix.os }}
           path: DarkFunkDurcalSynt-v2-macOS.zip
