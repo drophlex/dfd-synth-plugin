@@ -72,7 +72,70 @@ juce::Label* LnF::createSliderTextBox(juce::Slider& s) {
 class EyeView : public juce::Component {
 public:
     explicit EyeView(DfdProcessor& p) : proc(p) {}
+    // SMEAR: the eye is drawn into an image, then lit like light through a broken screen: warm (ember, rose) on the
+    // left, white-hot in the middle, cold (cyan, steel) on the right; columns of pixels dragged down (a pixel sort),
+    // blocks of mosaic, a soft sideways bloom. Louder and on a stutter or a build: more of all of it.
     void paint(juce::Graphics& g) override {
+        const int W = juce::jmax(8, getWidth()), H = juce::jmax(8, getHeight());
+        if (img.getWidth() != W || img.getHeight() != H) img = juce::Image(juce::Image::ARGB, W, H, true);
+        img.clear(img.getBounds());
+        { juce::Graphics ig(img); paintEye(ig); }
+        float ins = proc.engine.intensity.load(), lv = juce::jmin(1.0f, proc.engine.level.load() * 1.5f);
+        float amt = juce::jlimit(0.0f, 1.0f, 0.12f + lv * 0.45f + (ins > 0.7f ? (ins - 0.7f) * 1.5f : 0.0f));
+        smear(amt);
+        // the bloom under it: the white-hot core, warm to the left, cold to the right
+        auto c = getLocalBounds().toFloat().getCentre(); float r = juce::jmin((float)W, (float)H) * 0.42f;
+        juce::ColourGradient core(juce::Colour(0xfffff4e6).withAlpha(0.30f + lv * 0.35f), c.x, c.y, juce::Colour(0x00ff6a4a), c.x + r * 1.4f, c.y, true);
+        g.setGradientFill(core); g.fillEllipse(juce::Rectangle<float>(r * 2.8f, r * 1.9f).withCentre(c));
+        g.drawImageAt(img, 0, 0);
+        // a ghost of it, shifted and soft (the bloom)
+        g.setOpacity(0.25f + lv * 0.2f); g.drawImage(img, juce::Rectangle<float>(-6.0f, 0.0f, (float)W + 12.0f, (float)H));
+    }
+private:
+    juce::Image img; juce::Random rnd;
+    static juce::Colour split(float u) {                 // 0 left .. 1 right
+        static const juce::uint32 C[] = {0xffff3a14, 0xffff4f2e, 0xffff8a66, 0xfffff4e6, 0xff7fe0ff, 0xff22b0ff, 0xff2a5fd6};
+        float p = juce::jlimit(0.0f, 0.9999f, u) * 6.0f; int i = (int)p;
+        return juce::Colour(C[i]).interpolatedWith(juce::Colour(C[i + 1]), p - (float)i);
+    }
+    void smear(float amt) {
+        const int W = img.getWidth(), H = img.getHeight();
+        juce::Image::BitmapData bd(img, juce::Image::BitmapData::readWrite);
+        juce::Colour lut[64]; for (int k = 0; k < 64; ++k) lut[k] = split(k / 63.0f);
+        for (int y = 0; y < H; ++y)                       // the warm / cold split (keeps the brightness)
+            for (int x = 0; x < W; ++x) {
+                auto px = bd.getPixelColour(x, y); if (px.getAlpha() == 0) continue;
+                auto tc = lut[x * 63 / juce::jmax(1, W - 1)]; float br = px.getPerceivedBrightness();
+                bd.setPixelColour(x, y, tc.withMultipliedBrightness(juce::jmin(1.0f, br * 1.25f)).withAlpha(px.getAlpha()));
+            }
+        const int n = 6 + (int)(amt * 60);               // pixel sort: a column dragged down from where it is
+        for (int k = 0; k < n; ++k) {
+            int x = rnd.nextInt(W), y0 = rnd.nextInt(juce::jmax(1, H * 4 / 5)), len = (int)(H * (0.04f + rnd.nextFloat() * (0.12f + amt * 0.45f)));
+            int w = 1 + rnd.nextInt(3); juce::Colour src = bd.getPixelColour(x, y0); if (src.getAlpha() < 20) continue;
+            for (int dx = 0; dx < w && x + dx < W; ++dx)
+                for (int y = y0; y < juce::jmin(H, y0 + len); ++y) {
+                    float fade = 1.0f - (float)(y - y0) / (float)len;
+                    bd.setPixelColour(x + dx, y, bd.getPixelColour(x + dx, y).interpolatedWith(src, 0.75f * fade));
+                }
+        }
+        if (rnd.nextFloat() < 0.15f + amt) {             // mosaic: a few big square pixels
+            int nb = 1 + (int)(amt * 5);
+            for (int k = 0; k < nb; ++k) {
+                int s = 4 + rnd.nextInt(juce::jmax(2, H / 12)), bx = rnd.nextInt(juce::jmax(1, W - 3 * s)), by = rnd.nextInt(juce::jmax(1, H - s));
+                auto col = bd.getPixelColour(bx + s / 2, by + s / 2); if (col.getAlpha() < 20) col = split(bx / (float)W).withAlpha(0.5f);
+                int bw = s * (1 + rnd.nextInt(3));
+                for (int y = by; y < juce::jmin(H, by + s); ++y) for (int x = bx; x < juce::jmin(W, bx + bw); ++x) bd.setPixelColour(x, y, col);
+            }
+        }
+        if (amt > 0.5f && rnd.nextFloat() < amt - 0.4f) { // a row torn sideways
+            int y0 = rnd.nextInt(H), h = 1 + rnd.nextInt(4), d = (rnd.nextInt(2) ? 1 : -1) * (3 + rnd.nextInt(juce::jmax(2, (int)(W * 0.06f * amt))));
+            for (int y = y0; y < juce::jmin(H, y0 + h); ++y) {
+                std::vector<juce::Colour> row((size_t)W); for (int x = 0; x < W; ++x) row[(size_t)x] = bd.getPixelColour(x, y);
+                for (int x = 0; x < W; ++x) { int sx = x - d; bd.setPixelColour(x, y, sx >= 0 && sx < W ? row[(size_t)sx] : juce::Colours::transparentBlack); }
+            }
+        }
+    }
+    void paintEye(juce::Graphics& g) {
         auto b = getLocalBounds().toFloat(); auto c = b.getCentre();
         float ins = proc.engine.intensity.load(), lv = juce::jmin(1.0f, proc.engine.level.load() * 1.5f);
         double t = juce::Time::getMillisecondCounterHiRes() / 1000.0;
@@ -126,7 +189,6 @@ public:
         juce::Path tear; tear.startNewSubPath(c.x, c.y + r * 0.6f); tear.quadraticTo(c.x - r * 0.06f, c.y + r * 0.72f, c.x, c.y + r * 0.78f); tear.quadraticTo(c.x + r * 0.06f, c.y + r * 0.72f, c.x, c.y + r * 0.6f);
         g.setColour(BONE); g.fillPath(tear);
     }
-private:
     DfdProcessor& proc;
 };
 
@@ -248,7 +310,7 @@ void DfdEditor::Content::paint(juce::Graphics& g) {
     g.drawText("FUSION A/B", 40, 174, 100, 16, juce::Justification::centred); g.drawText("CHAOS", 170, 174, 100, 16, juce::Justification::centred);
     g.drawText("KEYS PLAY", 922, 322, 120, 14, juce::Justification::centredLeft);
     g.setColour(DIM); g.setFont(Fonts::get().text(13));
-    g.drawFittedText(juce::String::fromUTF8("KEYLAB ESSENTIAL: pads 1\xe2\x80\x938 = these pads \xc2\xb7 knobs = the SOUND page shown below "
+    g.drawFittedText(juce::String::fromUTF8("KEYLAB ESSENTIAL: pads 1-8 = these pads \xc2\xb7 knobs = the SOUND page shown below "
                      "(Part \xe2\x97\x80 \xe2\x96\xb6 changes page) \xc2\xb7 faders = levels, filter, echo, reverb, drive \xc2\xb7 master fader = master. "
                      "Shift-click a scene to store it."), 922, 404, 250, 84, juce::Justification::topLeft, 6);
     panel({20, 508, 1160, 200}, "SOUND");
