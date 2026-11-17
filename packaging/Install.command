@@ -28,5 +28,5 @@ echo "  KeyLab: $RS/DFD_KeyLab_Essential"
 echo ""
 echo "  1. Reinicia tu DAW / restart your DAW."
 echo "  2. KeyLab Essential + Ableton: conectalo y Live lo enlaza solo / plug it in, Live links it by itself."
-echo "  3. 3 dias de prueba gratis / 3-day free trial."
-osascript -e 'display dialog "Dark Funk Durcal Synt quedó instalado.\n\n• Reinicia tu DAW (Ableton, Logic, etc.).\n• Conecta tu KeyLab Essential: Ableton lo enlaza solo.\n• Tienes 3 días de prueba gratis.\n\nInstalled. Restart your DAW." with title "Polaris Sound Lab" buttons {"Ver guía / Guide", "OK"} default button "OK"' -e 'if button returned of result is "Ver guía / Guide" then open location "https://drophlex.github.io/dark-funk-durcal-synt-fm1/plugin.html"' >/dev/null 2>&1 || true
+echo "  3. Gratis y de codigo abierto / free and open source."
+osascript -e 'display dialog "Dark Funk Durcal Synt quedó instalado.\n\n• Reinicia tu DAW (Ableton, Logic, etc.).\n• Conecta tu KeyLab Essential: Ableton lo enlaza solo.\n• Gratis y de código abierto.\n\nInstalled. Restart your DAW." with title "Polaris Sound Lab" buttons {"Ver guía / Guide", "OK"} default button "OK"' -e 'if button returned of result is "Ver guía / Guide" then open location "https://drophlex.github.io/dark-funk-durcal-synt-fm1/plugin.html"' >/dev/null 2>&1 || true

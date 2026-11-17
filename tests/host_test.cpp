@@ -77,22 +77,19 @@ int main(int argc, char** argv) {
     check("editor opens; screenshots saved", true);
     ed.reset();
 
-    // the trial and the code (License.h)
+    // free and open source: it always plays; the help panel (with the small donation button) opens
     {
-        const juce::String good = "DFD2-12S0VHYN-7GZFJ6Q4-8DA64DXH-X335KY1C-9ZQVYPZB-K9SWEJP5-AZ7MH8KG-TP48DDYE-H566H3KD-2CQQZQMV-YNDX1Y5G-3HCX4WSY-M72HKRN1-4CM5PHFT-WBMW";
-        check("a code made for an e-mail unlocks it (any case, spaces)", dfdlic::checkCode("  test.buyer@EXAMPLE.com ", good) && dfdlic::checkCode("test.buyer@example.com", good.removeCharacters("-").toLowerCase()));
-        check("the same code with another e-mail, or a changed code, does not", !dfdlic::checkCode("other@example.com", good) && !dfdlic::checkCode("test.buyer@example.com", good.replace("DFD2-1", "DFD2-2")));
-        check("a fresh install is in its 3-day trial", proc.lic.canPlay() && !proc.lic.licensed && proc.lic.daysLeft() == 3);
-        proc.lic.trialStart -= dfdlic::kTrialMs + 1000; proc.canPlay = proc.lic.canPlay();
-        { float pk; double r; run(1.0, pk, r); check("after 3 days it is silent", pk == 0.0f && !proc.canPlay); }
         std::unique_ptr<juce::AudioProcessorEditor> e2(proc.createEditor()); e2->setSize(1200, 760);
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(200);
+        juce::Component* helpBtn = nullptr;
+        std::function<void(juce::Component*)> find = [&](juce::Component* c) { for (auto* k : c->getChildren()) { if (auto* tb = dynamic_cast<juce::TextButton*>(k); tb && tb->getButtonText() == "?") helpBtn = tb; find(k); } };
+        find(e2.get());
+        if (auto* tb = dynamic_cast<juce::TextButton*>(helpBtn)) tb->triggerClick();
         juce::MessageManager::getInstance()->runDispatchLoopUntil(300);
-        { auto img = e2->createComponentSnapshot(e2->getLocalBounds(), true, 2.0f); juce::File out(outDir + "/plugin_ui_unlock.png"); out.deleteFile();
-          juce::FileOutputStream os(out); juce::PNGImageFormat png; png.writeImageToStream(img, os); }
-        check("the right code unlocks it for good", proc.tryActivate("Test.Buyer@Example.com", good) && proc.canPlay && dfdlic::load().licensed);
-        { float pk; double r; run(2.0, pk, r); check("and it plays again", pk > 0.0f); }
+        auto img = e2->createComponentSnapshot(e2->getLocalBounds(), true, 2.0f); juce::File out(outDir + "/plugin_ui_help.png"); out.deleteFile();
+        juce::FileOutputStream os(out); juce::PNGImageFormat png; png.writeImageToStream(img, os);
+        check("the help panel opens (? in the corner)", helpBtn != nullptr);
         e2.reset();
-        dfdlic::settingsFile().deleteFile(); dfdlic::markerFile().deleteFile();
     }
     printf(fails ? "host test FAILED (%d)\n" : "host test passed\n", fails);
     return fails != 0;

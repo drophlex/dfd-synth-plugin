@@ -22,7 +22,7 @@ class EyeView;
 class GridView;
 class PadView;
 class DragMidiButton;
-class UnlockPanel;
+class HelpPanel;
 
 class DfdEditor : public juce::AudioProcessorEditor, private juce::Timer {
 public:
@@ -65,11 +65,9 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> aKnob[8];
     int bank = 0;
     juce::String status;
-    // the trial banner and the unlock panel (License.h)
-    juce::TextButton trialBtn;
-    std::unique_ptr<UnlockPanel> unlock;
-    void showUnlock(bool show);
-    void refreshTrial();
-    int trialTick = 0;
+    // help (?) and a small donation button in the corner
+    juce::TextButton helpBtn{"?"}, donateBtn{juce::String::fromUTF8("\xe2\x99\xa5")};
+    std::unique_ptr<HelpPanel> help;
+    void showHelp(bool show);
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DfdEditor)
 };

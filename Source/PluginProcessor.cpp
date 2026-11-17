@@ -35,8 +35,6 @@ DfdProcessor::DfdProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "DFD", layout()) {
     for (int i = 0; i < NPARAMS; ++i) raw[(size_t)i] = apvts.getRawParameterValue(kParams[i].id);
-    lic = dfdlic::load();
-    canPlay = lic.canPlay();
     startTimerHz(30);
 }
 
@@ -49,16 +47,8 @@ void DfdProcessor::prepareToPlay(double sampleRate, int) {
     engine.prepare((float)sampleRate);
 }
 
-bool DfdProcessor::tryActivate(const juce::String& email, const juce::String& code) {
-    if (!dfdlic::activate(email, code)) return false;
-    lic.licensed = true; lic.email = dfdlic::normaliseEmail(email);
-    canPlay = true;
-    return true;
-}
-
 void DfdProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
     juce::ScopedNoDenormals noDenormals;
-    if (!canPlay.load()) { buffer.clear(); midi.clear(); return; }   // the trial is over: silent until the code is entered
     // parameters -> engine
     for (int i = 0; i < NPARAMS; ++i) kParams[i].apply(engine.p, raw[(size_t)i]->load());
     engine.p.acid.cutoff = juce::jmin(1.0f, engine.p.acid.cutoff + modWheel * 0.6f);
@@ -96,7 +86,6 @@ void DfdProcessor::setParam(const char* id, float plain) {
 float DfdProcessor::getParam(const char* id) const { if (auto* v = apvts.getRawParameterValue(id)) return v->load(); return 0; }
 
 void DfdProcessor::timerCallback() {
-    if (++licTick >= 30 * 60) { licTick = 0; canPlay = lic.canPlay(); }   // once a minute: the trial may end while open
     if (engine.summoned) {
         engine.summoned = false;
         if (const auto* st = engine.summonedStyle) {
