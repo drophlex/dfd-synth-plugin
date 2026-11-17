@@ -1,0 +1,5 @@
+build/
+shots/
+*.wav
+render
+__pycache__/

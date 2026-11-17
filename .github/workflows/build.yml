@@ -1,0 +1,53 @@
+name: build
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  linux-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: deps
+        run: sudo apt-get update && sudo apt-get install -y libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libasound2-dev libfreetype6-dev libfontconfig1-dev xvfb
+      - name: engine render test
+        run: g++ -std=c++17 -O2 -o render tests/render.cpp && ./render
+      - name: plugin + host test
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DDFD_TESTS=ON
+          cmake --build build --target DfdHostTest -j4
+          mkdir -p shots && xvfb-run -a -s "-screen 0 1600x1000x24" build/DfdHostTest_artefacts/Release/DfdHostTest shots
+      - uses: actions/upload-artifact@v4
+        with: { name: screenshots, path: shots }
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: configure (universal: Apple Silicon + Intel)
+        run: cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
+      - name: build AU, VST3, Standalone
+        run: cmake --build build --config Release -j4
+      - name: sign (ad hoc) and validate the AU
+        run: |
+          A=build/DarkFunkDurcalSynt_artefacts/Release
+          for b in "$A/AU/Dark Funk Durcal Synt.component" "$A/VST3/Dark Funk Durcal Synt.vst3" "$A/Standalone/Dark Funk Durcal Synt.app"; do codesign --force --deep -s - "$b"; done
+          mkdir -p ~/Library/Audio/Plug-Ins/Components && cp -R "$A/AU/Dark Funk Durcal Synt.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar || true
+          auval -v aumu Dfds Plsl
+      - name: package
+        run: |
+          A=build/DarkFunkDurcalSynt_artefacts/Release
+          P="Dark Funk Durcal Synt v2 (macOS)"
+          mkdir -p "$P/Plugins" "$P/KeyLab Essential (Ableton)"
+          cp -R "$A/AU/Dark Funk Durcal Synt.component" "$A/VST3/Dark Funk Durcal Synt.vst3" "$P/Plugins/"
+          cp -R "$A/Standalone/Dark Funk Durcal Synt.app" "$P/"
+          cp -R KeyLab/DFD_KeyLab_Essential "$P/KeyLab Essential (Ableton)/"
+          cp packaging/Install.command packaging/LEEME-README.txt "$P/"
+          chmod +x "$P/Install.command"
+          ditto -c -k --keepParent "$P" DarkFunkDurcalSynt-v2-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DarkFunkDurcalSynt-v2-macOS
+          path: DarkFunkDurcalSynt-v2-macOS.zip
