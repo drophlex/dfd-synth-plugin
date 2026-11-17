@@ -292,6 +292,65 @@ private:
     DfdProcessor& proc; bool dragging = false;
 };
 
+// ================================================================ the unlock panel: the trial is over (or UNLOCK pressed)
+class UnlockPanel : public juce::Component {
+public:
+    UnlockPanel(DfdProcessor& p, std::function<void()> onDone) : proc(p), done(std::move(onDone)) {
+        auto setup = [this](juce::TextEditor& t, const juce::String& hint) {
+            t.setTextToShowWhenEmpty(hint, DIM); t.setFont(Fonts::get().text(17)); t.setColour(juce::TextEditor::backgroundColourId, BG);
+            t.setColour(juce::TextEditor::outlineColourId, LINE); t.setColour(juce::TextEditor::focusedOutlineColourId, EMBER); t.setColour(juce::TextEditor::textColourId, BONE);
+            t.setIndents(8, 7); addAndMakeVisible(t); };
+        setup(email, "tu correo / your e-mail"); setup(code, juce::String::fromUTF8("c\xc3\xb3" "digo / code: DFD2-..."));
+        for (auto* b : {&buy, &dm, &mail, &activate, &close}) addAndMakeVisible(*b);
+        activate.getProperties().set("big", true);
+        buy.onClick = [] { juce::URL(dfdlic::kBuyUrl).launchInDefaultBrowser(); };
+        dm.onClick = [] { juce::URL(dfdlic::kInstagramUrl).launchInDefaultBrowser(); };
+        mail.onClick = [] { juce::URL(juce::String("mailto:") + dfdlic::kEmail + "?subject=Dark%20Funk%20Durcal%20Synt%20-%20comprobante%20de%20compra").launchInDefaultBrowser(); };
+        activate.onClick = [this] {
+            if (proc.tryActivate(email.getText(), code.getText())) { msg = juce::String::fromUTF8("\xc2\xa1Gracias! Versi\xc3\xb3n completa activada. \xc2\xb7 Thank you! Full version unlocked."); ok = true; repaint(); juce::Timer::callAfterDelay(1600, [d = done] { d(); }); }
+            else { msg = juce::String::fromUTF8("Ese c\xc3\xb3" "digo no corresponde a ese correo. \xc2\xb7 That code does not match that e-mail."); ok = false; repaint(); }
+        };
+        close.onClick = [this] { done(); };
+    }
+    void paint(juce::Graphics& g) override {
+        auto r = getLocalBounds().toFloat();
+        g.setColour(juce::Colours::black.withAlpha(0.6f)); g.fillRect(r);
+        auto p = panelArea().toFloat();
+        juce::ColourGradient warm(juce::Colour(0x55ff4a1c), p.getX(), p.getY(), juce::Colour(0x552fb8ff), p.getRight(), p.getY(), false);
+        g.setColour(PANEL); g.fillRoundedRectangle(p, 10); g.setGradientFill(warm); g.fillRect(p.withHeight(4).reduced(6, 0));
+        g.setColour(LINE); g.drawRoundedRectangle(p, 10, 1.2f);
+        auto x = (int)p.getX() + 30, w = (int)p.getWidth() - 60; int y = (int)p.getY() + 24;
+        g.setColour(BONE); g.setFont(Fonts::get().title(24));
+        bool over = !proc.lic.canPlay();
+        g.drawText(over ? juce::String::fromUTF8("TU PRUEBA DE 3 D\xc3\x8d" "AS TERMIN\xc3\x93") : juce::String::fromUTF8("DESBLOQUEA LA VERSI\xc3\x93N COMPLETA"), x, y, w, 32, juce::Justification::centred);
+        y += 40; g.setColour(DIM); g.setFont(Fonts::get().text(15));
+        g.drawText(over ? "Your 3-day trial is over" : "Unlock the full version", x, y, w, 18, juce::Justification::centred);
+        y += 30; g.setColour(BONE); g.setFont(Fonts::get().text(18));
+        g.drawFittedText(juce::String::fromUTF8("Dona 250 pesos (MXN) por PayPal y m\xc3\xa1ndanos tu comprobante por DM a @polaris.sound.lab en Instagram "
+                         "o al correo polarissoundlab@gmail.com. Te enviamos tu c\xc3\xb3" "digo para siempre."), x, y, w, 52, juce::Justification::centred, 3);
+        y += 56; g.setColour(DIM); g.setFont(Fonts::get().text(14));
+        g.drawFittedText("Donate 250 MXN via PayPal and send the receipt by DM to @polaris.sound.lab or to polarissoundlab@gmail.com: we send you your code.", x, y, w, 36, juce::Justification::centred, 2);
+        if (msg.isNotEmpty()) { g.setColour(ok ? juce::Colour(0xff7fe0ff) : EMBER); g.setFont(Fonts::get().text(16, true)); g.drawText(msg, x, (int)p.getBottom() - 46, w, 20, juce::Justification::centred); }
+        g.setColour(DIM); g.setFont(Fonts::get().text(13));
+        g.drawText(juce::String::fromUTF8("POLARIS SOUND LAB \xc2\xb7 M\xc3\x89RIDA, YUCAT\xc3\x81N, M\xc3\x89XICO"), x, (int)p.getBottom() - 24, w, 16, juce::Justification::centred);
+    }
+    void resized() override {
+        auto p = panelArea(); int x = p.getX() + 30, w = p.getWidth() - 60, y = p.getY() + 214;
+        int bw = (w - 20) / 3;
+        buy.setBounds(x, y, bw, 34); dm.setBounds(x + bw + 10, y, bw, 34); mail.setBounds(x + 2 * (bw + 10), y, bw, 34);
+        y += 50; email.setBounds(x, y, w, 34); y += 42; code.setBounds(x, y, w, 34); y += 46;
+        activate.setBounds(x + w / 2 - 130, y, 260, 42);
+        close.setBounds(p.getRight() - 40, p.getY() + 10, 30, 26);
+        close.setVisible(proc.lic.canPlay());
+    }
+    juce::Rectangle<int> panelArea() const { return getLocalBounds().withSizeKeepingCentre(620, 470); }
+private:
+    DfdProcessor& proc; std::function<void()> done;
+    juce::TextEditor email, code;
+    juce::TextButton buy{"DONAR 250 MXN"}, dm{"DM INSTAGRAM"}, mail{"CORREO / EMAIL"}, activate{"ACTIVAR / ACTIVATE"}, close{"X"};
+    juce::String msg; bool ok = false;
+};
+
 // ================================================================ the editor
 void DfdEditor::Content::paint(juce::Graphics& g) {
     g.fillAll(BG);
@@ -379,12 +438,16 @@ DfdEditor::DfdEditor(DfdProcessor& p) : AudioProcessorEditor(&p), proc(p) {
         knobLabel[k].setJustificationType(juce::Justification::centred); knobLabel[k].setFont(Fonts::get().text(16, true)); add(knobLabel[k]);
     }
     bankBtn[0].setToggleState(true, juce::dontSendNotification); showBank(0);
+    // the trial: a banner while it lasts, the unlock panel once it is over
+    add(trialBtn); trialBtn.onClick = [this] { showUnlock(true); };
+    refreshTrial();
+    if (!proc.lic.canPlay()) showUnlock(true);
     setResizable(true, true); setResizeLimits(W * 6 / 10, H * 6 / 10, W * 2, H * 2);
     if (auto* c = getConstrainer()) c->setFixedAspectRatio((double)W / H);
     setSize(W, H);
     startTimerHz(30);
 }
-DfdEditor::~DfdEditor() { setLookAndFeel(nullptr); }
+DfdEditor::~DfdEditor() { unlock.reset(); setLookAndFeel(nullptr); }
 
 void DfdEditor::buildPresetMenu() {
     presetBox.clear(); juce::String cat;
@@ -408,12 +471,33 @@ void DfdEditor::showBank(int b) {
 
 void DfdEditor::paint(juce::Graphics& g) { g.fillAll(BG); }
 
+void DfdEditor::showUnlock(bool show) {
+    if (show && unlock == nullptr) {
+        unlock = std::make_unique<UnlockPanel>(proc, [this] { juce::MessageManager::callAsync([sp = juce::Component::SafePointer<DfdEditor>(this)] { if (sp) sp->showUnlock(false); }); });
+        content.addAndMakeVisible(*unlock); unlock->setBounds(0, 0, W, H); unlock->toFront(true);
+    } else if (!show && unlock != nullptr) {
+        if (!proc.lic.canPlay()) return;                         // the trial is over: it stays until the code is entered
+        unlock.reset();
+    }
+    refreshTrial();
+}
+
+void DfdEditor::refreshTrial() {
+    const auto& L = proc.lic;
+    trialBtn.setVisible(!L.licensed);
+    if (L.licensed) return;
+    trialBtn.setButtonText(L.canPlay() ? juce::String::fromUTF8("PRUEBA: ") + juce::String(L.daysLeft()) + juce::String::fromUTF8(L.daysLeft() == 1 ? " D\xc3\x8d" "A \xc2\xb7 DESBLOQUEAR" : " D\xc3\x8d" "AS \xc2\xb7 DESBLOQUEAR")
+                                       : juce::String::fromUTF8("PRUEBA TERMINADA \xc2\xb7 DESBLOQUEAR"));
+    trialBtn.setColour(juce::TextButton::buttonColourId, L.canPlay() ? BG : BLOOD);
+}
+
 void DfdEditor::resized() {
     float s = juce::jmin(getWidth() / (float)W, getHeight() / (float)H);
     content.setTransform(juce::AffineTransform::scale(s));
     // header
     presetBox.setBounds(480, 22, 300, 30); prevPreset.setBounds(448, 22, 30, 30); nextPreset.setBounds(782, 22, 30, 30);
     undoBtn.setBounds(826, 22, 64, 30); redoBtn.setBounds(894, 22, 64, 30); playBtn.setBounds(966, 22, 76, 30); dragMidi->setBounds(1050, 22, 130, 30);
+    trialBtn.setBounds(306, 70, 210, 24);
     // ritual
     styleA.setBounds(34, 108, 242, 28); styleB.setBounds(34, 142, 242, 28);
     fusion.setBounds(40, 190, 100, 88); chaos.setBounds(170, 190, 100, 88);
@@ -437,6 +521,7 @@ void DfdEditor::resized() {
 }
 
 void DfdEditor::timerCallback() {
+    if (++trialTick >= 30 * 30) { trialTick = 0; refreshTrial(); if (!proc.lic.canPlay() && unlock == nullptr) showUnlock(true); }
     eye->repaint(); grid->repaint(); pads->repaint();
     for (int i = 0; i < 8; ++i) {
         bool cur = proc.engine.currentScene.load() == i, q = proc.engine.queuedScene.load() == i;

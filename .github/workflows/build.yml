@@ -62,3 +62,31 @@ jobs:
         run: |
           gh release view v2 >/dev/null 2>&1 || gh release create v2 --title "Dark Funk Durcal Synt v2 (macOS: AU, VST3, app, KeyLab script)" --notes "Built by CI from main. Unzip, run Install.command (right-click > Open the first time)."
           gh release upload v2 DarkFunkDurcalSynt-v2-macOS.zip --clobber
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+      - name: build VST3 and Standalone
+        run: cmake --build build --config Release -j 4
+      - name: package
+        shell: bash
+        run: |
+          A=build/DarkFunkDurcalSynt_artefacts/Release
+          P="Dark Funk Durcal Synt v2 (Windows)"
+          mkdir -p "$P/Plugins" "$P/KeyLab Essential (Ableton)"
+          cp -R "$A/VST3/Dark Funk Durcal Synt.vst3" "$P/Plugins/"
+          cp "$A/Standalone/Dark Funk Durcal Synt.exe" "$P/"
+          cp -R KeyLab/DFD_KeyLab_Essential "$P/KeyLab Essential (Ableton)/"
+          cp packaging/Install.bat packaging/LEEME-README.txt "$P/"
+          7z a -tzip DarkFunkDurcalSynt-v2-Windows.zip "$P" >/dev/null
+      - uses: actions/upload-artifact@v4
+        with: { name: DarkFunkDurcalSynt-v2-Windows, path: DarkFunkDurcalSynt-v2-Windows.zip }
+      - name: "publish: the release 'v2'"
+        shell: bash
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release view v2 >/dev/null 2>&1 || gh release create v2 --title "Dark Funk Durcal Synt v2" --notes "Built by CI."
+          gh release upload v2 DarkFunkDurcalSynt-v2-Windows.zip --clobber

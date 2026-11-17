@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "ParamTable.h"
 #include "Presets.h"
+#include "License.h"
 
 class DfdProcessor : public juce::AudioProcessor, private juce::Timer {
 public:
@@ -39,6 +40,10 @@ public:
     void setParam(const char* id, float plainValue);
     float getParam(const char* id) const;
     int currentPreset = 0;
+    // the trial and the full version (License.h)
+    dfdlic::State lic;
+    std::atomic<bool> canPlay{true};
+    bool tryActivate(const juce::String& email, const juce::String& code);
     juce::String presetName() const { return juce::String(dfd::kPresets[currentPreset].name); }
 
 private:
@@ -46,5 +51,6 @@ private:
     static juce::AudioProcessorValueTreeState::ParameterLayout layout();
     std::array<std::atomic<float>*, dfd::NPARAMS> raw{};
     float modWheel = 0;
+    int licTick = 0;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DfdProcessor)
 };

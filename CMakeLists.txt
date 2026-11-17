@@ -17,7 +17,11 @@ if(NOT DEFINED DFD_FORMATS)
     if(APPLE)
         set(DFD_FORMATS AU VST3 Standalone)
     else()
-        set(DFD_FORMATS VST3)
+        if(WIN32)
+            set(DFD_FORMATS VST3 Standalone)
+        else()
+            set(DFD_FORMATS VST3)
+        endif()
     endif()
 endif()
 
@@ -52,7 +56,7 @@ target_compile_definitions(DarkFunkDurcalSynt PUBLIC
     JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_ALSA=$<IF:$<PLATFORM_ID:Linux>,0,1> JUCE_JACK=0)
 target_link_libraries(DarkFunkDurcalSynt PRIVATE DfdData
-    juce::juce_audio_utils juce::juce_audio_processors juce::juce_gui_extra
+    juce::juce_audio_utils juce::juce_audio_processors juce::juce_gui_extra juce::juce_cryptography
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)
 
 # ---- host test (Linux / CI): the real processor and editor in a fake host
@@ -64,5 +68,5 @@ if(DFD_TESTS)
     target_include_directories(DfdHostTest PRIVATE Source)
     target_compile_definitions(DfdHostTest PRIVATE JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_ALSA=0 JUCE_JACK=0
         JucePlugin_Name="Dark Funk Durcal Synt" JucePlugin_IsSynth=1 JucePlugin_WantsMidiInput=1 JucePlugin_ProducesMidiOutput=0)
-    target_link_libraries(DfdHostTest PRIVATE DfdData juce::juce_audio_utils juce::juce_audio_processors juce::juce_gui_extra juce::juce_recommended_config_flags)
+    target_link_libraries(DfdHostTest PRIVATE DfdData juce::juce_audio_utils juce::juce_audio_processors juce::juce_gui_extra juce::juce_cryptography juce::juce_recommended_config_flags)
 endif()
