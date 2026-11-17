@@ -89,6 +89,19 @@ int main(int argc, char** argv) {
         auto img = e2->createComponentSnapshot(e2->getLocalBounds(), true, 2.0f); juce::File out(outDir + "/plugin_ui_help.png"); out.deleteFile();
         juce::FileOutputStream os(out); juce::PNGImageFormat png; png.writeImageToStream(img, os);
         check("the help panel opens (? in the corner)", helpBtn != nullptr);
+        // English by default; the ES button switches everything to Spanish (and back)
+        juce::TextButton* langBtn = nullptr;
+        std::function<void(juce::Component*)> findL = [&](juce::Component* c) { for (auto* k : c->getChildren()) { if (auto* tb = dynamic_cast<juce::TextButton*>(k); tb && (tb->getButtonText() == "ES" || tb->getButtonText() == "EN")) langBtn = tb; findL(k); } };
+        findL(e2.get());
+        bool wasEn = langBtn && langBtn->getButtonText() == "ES";
+        if (langBtn) langBtn->triggerClick();
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(300);
+        { auto im = e2->createComponentSnapshot(e2->getLocalBounds(), true, 2.0f); juce::File o2(outDir + "/plugin_ui_help_es.png"); o2.deleteFile();
+          juce::FileOutputStream os2(o2); juce::PNGImageFormat p2; p2.writeImageToStream(im, os2); }
+        bool nowEs = langBtn && langBtn->getButtonText() == "EN";
+        if (langBtn) langBtn->triggerClick();
+        juce::MessageManager::getInstance()->runDispatchLoopUntil(200);
+        check("English by default; the ES button switches to Spanish and back", wasEn && nowEs && langBtn->getButtonText() == "ES");
         e2.reset();
     }
     printf(fails ? "host test FAILED (%d)\n" : "host test passed\n", fails);

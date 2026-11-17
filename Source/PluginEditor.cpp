@@ -4,6 +4,14 @@
 using namespace dfdui;
 using namespace dfd;
 
+// ================================================================ the language: English by default, ES button in the corner
+namespace lang {
+inline juce::File file() { return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("Polaris Sound Lab").getChildFile("DarkFunkDurcalSynt.settings"); }
+inline bool& es() { static bool v = [] { juce::PropertiesFile::Options o; juce::PropertiesFile pf(file(), o); return pf.getValue("lang") == "es"; }(); return v; }
+inline void set(bool s) { es() = s; juce::PropertiesFile::Options o; juce::PropertiesFile pf(file(), o); pf.setValue("lang", s ? "es" : "en"); pf.saveIfNeeded(); }
+}
+static juce::String T(const char* en, const char* es) { return juce::String::fromUTF8(lang::es() ? es : en); }
+
 // ================================================================ fonts and look
 Fonts& Fonts::get() {
     static Fonts f;
@@ -229,7 +237,7 @@ public:
             }
         }
         if (proc.engine.nextReady) { g.setColour(EMBER); g.setFont(Fonts::get().text(14, true));
-            g.drawText("LEAD: TRYING NEXT " + juce::String(proc.engine.nextPick + 1) + "  (KEEP to keep it)", getLocalBounds().removeFromBottom(16).reduced(60, 0), juce::Justification::centredRight); }
+            g.drawText(T("LEAD: TRYING NEXT ", "MELOD\xc3\x8d" "A: PROBANDO ") + juce::String(proc.engine.nextPick + 1) + T("  (KEEP to keep it)", "  (KEEP para quedarte con ella)"), getLocalBounds().removeFromBottom(16).reduced(60, 0), juce::Justification::centredRight); }
     }
     void mouseDown(const juce::MouseEvent& e) override {
         for (int t = 0; t < NTRACKS; ++t) {
@@ -261,7 +269,8 @@ public:
             g.setColour(lit ? BLOOD : juce::Colour(0xff1d1916)); g.fillRoundedRectangle(r, 6);
             g.setColour(lit ? EMBER : LINE); g.drawRoundedRectangle(r, 6, 1.5f);
             g.setColour(lit ? juce::Colour(0xfff3ebd8) : BONE); g.setFont(Fonts::get().text(15, true));
-            g.drawFittedText(Engine::kPadNames[i], r.toNearestInt().reduced(4), juce::Justification::centred, 2);
+            static const char* const ES_PADS[8] = {"SILENCIA BATER\xc3\x8d" "A", "SILENCIA ACID", "SILENCIA BAJO", "SILENCIA MELOD\xc3\x8d" "A", "FILL", "STUTTER", "BUILD/DROP", "SIGUIENTE FRASE"};
+            g.drawFittedText(T(Engine::kPadNames[i], ES_PADS[i]), r.toNearestInt().reduced(4), juce::Justification::centred, 2);
             g.setColour(DIM); g.setFont(Fonts::get().text(11)); g.drawText("PAD " + juce::String(i + 1), r.toNearestInt().reduced(5, 3), juce::Justification::topLeft);
         }
     }
@@ -280,7 +289,7 @@ public:
     void paint(juce::Graphics& g) override {
         auto r = getLocalBounds().toFloat().reduced(1); g.setColour(juce::Colour(0xff1d1916)); g.fillRoundedRectangle(r, 4);
         g.setColour(EMBER); g.drawRoundedRectangle(r, 4, 1.2f); g.setFont(Fonts::get().text(15, true)); g.setColour(BONE);
-        g.drawText(juce::String::fromUTF8("\xe2\x87\xa2 DRAG MIDI"), getLocalBounds(), juce::Justification::centred);
+        g.drawText(T("\xe2\x87\xa2 DRAG MIDI", "\xe2\x87\xa2 ARRASTRA MIDI"), getLocalBounds(), juce::Justification::centred);
     }
     void mouseDrag(const juce::MouseEvent& e) override {
         if (dragging || e.getDistanceFromDragStart() < 6) return;
@@ -315,26 +324,35 @@ public:
         g.setGradientFill(line); g.fillRect(p.withHeight(3).reduced(8, 0));
         g.setColour(LINE); g.drawRoundedRectangle(p, 10, 1.2f);
         int x = (int)p.getX() + 30, w = (int)p.getWidth() - 60, y = (int)p.getY() + 20;
-        g.setColour(BONE); g.setFont(Fonts::get().title(22)); g.drawText(juce::String::fromUTF8("GU\xc3\x8d" "A R\xc3\x81PIDA \xc2\xb7 QUICK GUIDE"), x, y, w, 30, juce::Justification::centred);
+        const bool es = lang::es();
+        g.setColour(BONE); g.setFont(Fonts::get().title(22)); g.drawText(T("QUICK GUIDE", "GU\xc3\x8d" "A R\xc3\x81PIDA"), x, y, w, 30, juce::Justification::centred);
         y += 44;
-        static const char* rows[][2] = {
-            {"SUMMON", "Elige dos estilos, FUSION y CHAOS, y pulsa SUMMON: bater\xc3\xad" "a, acid, bajo y melod\xc3\xad" "a. \xc2\xb7 Two styles, then SUMMON."},
-            {"DADOS / DICE", "DRUMS, ACID, MELODY, SOUND o ALL cambian una parte. UNDO / REDO deshacen. \xc2\xb7 Re-roll one part."},
-            {"LIVE", "Pads 1-4 silencian, 5 FILL, 6 STUTTER, sost\xc3\xa9n 7 y suelta = DROP, 8 NEXT PHRASE. \xc2\xb7 Mute, fill, stutter, drop."},
-            {"ESCENAS", "A-H entran al final del comp\xc3\xa1s; Shift + clic guarda la escena. \xc2\xb7 Shift-click stores a scene."},
-            {"NEXT", "3 NEXT da 3 ideas para tu melod\xc3\xad" "a: prueba 1, 2, 3 y KEEP. \xc2\xb7 Three continuations, KEEP one."},
-            {"TECLAS / KEYS", "Tu teclado toca la parte de KEYS PLAY siempre en tono (SCALE LOCK). \xc2\xb7 Always in key."},
-            {"MIDI", "Arrastra DRAG MIDI a tu DAW: 4 pistas listas para editar. \xc2\xb7 Drag the MIDI into your DAW."},
-            {"KEYLAB", "En Ableton se enlaza solo: perillas, faders, pads y pantalla. \xc2\xb7 Links itself in Ableton."},
-        };
-        for (auto& r : rows) {
-            g.setColour(EMBER); g.setFont(Fonts::get().text(15, true)); g.drawText(r[0], x, y, 118, 22, juce::Justification::centredLeft);
-            g.setColour(BONE); g.setFont(Fonts::get().text(15)); g.drawFittedText(juce::String::fromUTF8(r[1]), x + 122, y, w - 122, 22, juce::Justification::centredLeft, 1, 0.8f);
-            y += 28;
+        static const char* en[][2] = {
+            {"SUMMON", "Pick two styles, set FUSION and CHAOS, press SUMMON: drums, acid, bass and melody at once."},
+            {"DICE", "DRUMS, ACID, MELODY, SOUND or ALL re-roll one part. UNDO / REDO go back and forth."},
+            {"LIVE", "Pads 1-4 mute, 5 FILL, 6 STUTTER, hold 7 and let go = DROP, 8 NEXT PHRASE."},
+            {"SCENES", "A-H come in at the end of the bar; Shift-click stores the current pattern in a scene."},
+            {"NEXT", "3 NEXT gives 3 ideas for your melody: try 1, 2, 3 and KEEP the one you like."},
+            {"KEYS", "Your keyboard plays the KEYS PLAY part, always in key (SCALE LOCK)."},
+            {"MIDI", "Drag DRAG MIDI into your DAW: 4 tracks ready to edit."},
+            {"KEYLAB", "In Ableton it links by itself: knobs, faders, pads, keys and the screen."}};
+        static const char* sp[][2] = {
+            {"INVOCAR", "Elige dos estilos, ajusta FUSI\xc3\x93N y CAOS y pulsa INVOCAR: bater\xc3\xad" "a, acid, bajo y melod\xc3\xad" "a."},
+            {"DADOS", "BATER\xc3\x8d" "A, ACID, MELOD\xc3\x8d" "A, SONIDO o TODO cambian una parte. DESHACER / REHACER."},
+            {"LIVE", "Pads 1-4 silencian, 5 FILL, 6 STUTTER, sost\xc3\xa9n 7 y suelta = DROP, 8 SIGUIENTE FRASE."},
+            {"ESCENAS", "A-H entran al final del comp\xc3\xa1s; Shift + clic guarda el patr\xc3\xb3n en una escena."},
+            {"3 IDEAS", "3 IDEAS para tu melod\xc3\xad" "a: prueba 1, 2, 3 y pulsa QUEDAR en la que te guste."},
+            {"TECLAS", "Tu teclado toca la parte de LAS TECLAS TOCAN, siempre en tono (EN ESCALA)."},
+            {"MIDI", "Arrastra ARRASTRA MIDI a tu DAW: 4 pistas listas para editar."},
+            {"KEYLAB", "En Ableton se enlaza solo: perillas, faders, pads, teclas y pantalla."}};
+        for (int i = 0; i < 8; ++i) {
+            g.setColour(EMBER); g.setFont(Fonts::get().text(16, true)); g.drawText(es ? sp[i][0] : en[i][0], x, y, 118, 24, juce::Justification::centredLeft);
+            g.setColour(BONE); g.setFont(Fonts::get().text(16)); g.drawFittedText(juce::String::fromUTF8(es ? sp[i][1] : en[i][1]), x + 122, y, w - 122, 24, juce::Justification::centredLeft, 1, 0.8f);
+            y += 29;
         }
-        y += 6; g.setColour(DIM); g.setFont(Fonts::get().text(14));
-        g.drawFittedText(juce::String::fromUTF8("Gratis y de c\xc3\xb3" "digo abierto (AGPL-3.0). Si te gusta lo que hago, puedes apoyar con una donaci\xc3\xb3n. \xc2\xb7 Free and open source. If you like it, a donation helps."),
-                         x, y, w, 36, juce::Justification::centred, 2);
+        y += 6; g.setColour(DIM); g.setFont(Fonts::get().text(15));
+        g.drawFittedText(T("Free and open source (AGPL-3.0). If you like what I do, you can support it with a donation.",
+                           "Gratis y de c\xc3\xb3" "digo abierto (AGPL-3.0). Si te gusta lo que hago, puedes apoyar con una donaci\xc3\xb3n."), x, y, w, 36, juce::Justification::centred, 2);
         g.setColour(DIM); g.setFont(Fonts::get().text(13));
         g.drawText(juce::String::fromUTF8("POLARIS SOUND LAB \xc2\xb7 M\xc3\x89RIDA, YUCAT\xc3\x81N, M\xc3\x89XICO \xc2\xb7 @polaris.sound.lab"), x, (int)p.getBottom() - 26, w, 16, juce::Justification::centred);
     }
@@ -347,8 +365,8 @@ public:
     juce::Rectangle<int> panelArea() const { return getLocalBounds().withSizeKeepingCentre(680, 470); }
 private:
     std::function<void()> done;
-    juce::TextButton guide{juce::String::fromUTF8("MANUAL \xc2\xb7 WEB")}, source{juce::String::fromUTF8("C\xc3\x93" "DIGO / SOURCE")}, close{"X"},
-                     donate{juce::String::fromUTF8("\xe2\x99\xa5 donar (PayPal)")};
+    juce::TextButton guide{T("MANUAL \xc2\xb7 WEB", "MANUAL \xc2\xb7 WEB")}, source{T("SOURCE CODE", "C\xc3\x93" "DIGO FUENTE")}, close{"X"},
+                     donate{T("\xe2\x99\xa5 donate (PayPal)", "\xe2\x99\xa5 donar (PayPal)")};
 };
 
 // ================================================================ the editor
@@ -366,16 +384,15 @@ void DfdEditor::Content::paint(juce::Graphics& g) {
     panel({20, 76, 270, 420}, "RITUAL");
     panel({910, 76, 270, 420}, "LIVE");
     g.setColour(DIM); g.setFont(Fonts::get().text(13, true));
-    g.drawText("FUSION A/B", 40, 174, 100, 16, juce::Justification::centred); g.drawText("CHAOS", 170, 174, 100, 16, juce::Justification::centred);
-    g.drawText("KEYS PLAY", 922, 322, 120, 14, juce::Justification::centredLeft);
+    g.drawText(T("FUSION A/B", "FUSI\xc3\x93N A/B"), 40, 174, 100, 16, juce::Justification::centred); g.drawText(T("CHAOS", "CAOS"), 170, 174, 100, 16, juce::Justification::centred);
+    g.drawText(T("KEYS PLAY", "LAS TECLAS TOCAN"), 922, 322, 160, 14, juce::Justification::centredLeft);
     g.setColour(DIM); g.setFont(Fonts::get().text(13));
-    g.drawFittedText(juce::String::fromUTF8("KEYLAB ESSENTIAL: pads 1-8 = these pads \xc2\xb7 knobs = the SOUND page shown below "
-                     "(Part \xe2\x97\x80 \xe2\x96\xb6 changes page) \xc2\xb7 faders = levels, filter, echo, reverb, drive \xc2\xb7 master fader = master. "
-                     "Shift-click a scene to store it."), 922, 404, 250, 84, juce::Justification::topLeft, 6);
-    panel({20, 508, 1160, 200}, "SOUND");
+    g.drawFittedText(T("KEYLAB ESSENTIAL: pads 1-8 = these pads \xc2\xb7 knobs = the SOUND page shown below (Part \xe2\x97\x80 \xe2\x96\xb6 changes page) \xc2\xb7 faders = levels, filter, echo, reverb, drive \xc2\xb7 master fader = master. Shift-click a scene to store it.",
+                       "KEYLAB ESSENTIAL: pads 1-8 = estos pads \xc2\xb7 perillas = la p\xc3\xa1gina de SONIDO de abajo (Part \xe2\x97\x80 \xe2\x96\xb6 cambia de p\xc3\xa1gina) \xc2\xb7 faders = niveles, filtro, eco, reverb, drive \xc2\xb7 fader master = volumen. Shift + clic en una escena la guarda."), 922, 404, 250, 84, juce::Justification::topLeft, 6);
+    panel({20, 508, 1160, 200}, lang::es() ? "SONIDO" : "SOUND");
     g.setColour(DIM); g.setFont(Fonts::get().text(13));
-    g.drawText(juce::String::fromUTF8("CREATED AT POLARIS SOUND LAB \xc2\xb7 M\xc3\x89RIDA, YUCAT\xc3\x81N, M\xc3\x89XICO \xc2\xb7 @polaris.sound.lab"), 20, 722, 760, 18, juce::Justification::centredLeft);
-    if (ed) { g.setColour(EMBER); g.setFont(Fonts::get().text(16, true)); g.drawText(ed->status, 700, 722, 408, 18, juce::Justification::centredRight); }
+    g.drawText(T("CREATED AT POLARIS SOUND LAB \xc2\xb7 M\xc3\x89RIDA, YUCAT\xc3\x81N, M\xc3\x89XICO \xc2\xb7 @polaris.sound.lab", "CREADO EN POLARIS SOUND LAB \xc2\xb7 M\xc3\x89RIDA, YUCAT\xc3\x81N, M\xc3\x89XICO \xc2\xb7 @polaris.sound.lab"), 20, 722, 700, 18, juce::Justification::centredLeft);
+    if (ed) { g.setColour(EMBER); g.setFont(Fonts::get().text(16, true)); g.drawText(ed->status, 720, 722, 352, 18, juce::Justification::centredRight); }
 }
 
 DfdEditor::DfdEditor(DfdProcessor& p) : AudioProcessorEditor(&p), proc(p) {
@@ -438,11 +455,13 @@ DfdEditor::DfdEditor(DfdProcessor& p) : AudioProcessorEditor(&p), proc(p) {
         knobLabel[k].setJustificationType(juce::Justification::centred); knobLabel[k].setFont(Fonts::get().text(16, true)); add(knobLabel[k]);
     }
     bankBtn[0].setToggleState(true, juce::dontSendNotification); showBank(0);
+    applyLanguage();
     // help (?) and, small in the corner, the donation
     add(helpBtn); helpBtn.onClick = [this] { showHelp(true); }; helpBtn.setTooltip("Ayuda / Help");
     add(donateBtn); donateBtn.onClick = [] { juce::URL(kDonateUrl).launchInDefaultBrowser(); };
+    add(langBtn); langBtn.onClick = [this] { lang::set(!lang::es()); applyLanguage(); };
     donateBtn.setTooltip(juce::String::fromUTF8("Si te gusta, apoya con una donaci\xc3\xb3n (PayPal) \xc2\xb7 If you like it, donate"));
-    for (auto* b : {&helpBtn, &donateBtn}) { b->setColour(juce::TextButton::buttonColourId, BG); b->setColour(juce::TextButton::textColourOffId, DIM); }
+    for (auto* b : {&helpBtn, &donateBtn, &langBtn}) { b->setColour(juce::TextButton::buttonColourId, BG); b->setColour(juce::TextButton::textColourOffId, DIM); }
     setResizable(true, true); setResizeLimits(W * 6 / 10, H * 6 / 10, W * 2, H * 2);
     if (auto* c = getConstrainer()) c->setFixedAspectRatio((double)W / H);
     setSize(W, H);
@@ -472,6 +491,33 @@ void DfdEditor::showBank(int b) {
 
 void DfdEditor::paint(juce::Graphics& g) { g.fillAll(BG); }
 
+void DfdEditor::applyLanguage() {
+    const bool es = lang::es();
+    langBtn.setButtonText(es ? "EN" : "ES");
+    langBtn.setTooltip(es ? "English" : juce::String::fromUTF8("Espa\xc3\xb1ol"));
+    helpBtn.setTooltip(T("Help", "Ayuda"));
+    donateBtn.setTooltip(T("If you like it, support it with a donation (PayPal)", "Si te gusta, apoya con una donaci\xc3\xb3n (PayPal)"));
+    undoBtn.setButtonText(T("UNDO", "DESHACER")); redoBtn.setButtonText(T("REDO", "REHACER")); playBtn.setButtonText(T("PLAY", "TOCAR"));
+    summon.setButtonText(T("SUMMON", "INVOCAR"));
+    diceDrums.setButtonText(T("DRUMS", "BATER\xc3\x8d" "A")); diceAcid.setButtonText("ACID"); diceMel.setButtonText(T("MELODY", "MELOD\xc3\x8d" "A"));
+    diceSound.setButtonText(T("SOUND", "SONIDO")); diceAll.setButtonText(T("ALL", "TODO"));
+    makeBtn.setButtonText(T("MAKE MELODY", "CREAR MELOD\xc3\x8d" "A"));
+    nextGen.setButtonText(T("3 NEXT", "3 IDEAS")); keep.setButtonText(T("KEEP", "QUEDAR"));
+    scaleLock.setButtonText(T("SCALE LOCK", "EN ESCALA")); keyTrans.setButtonText(T("KEYS TRANSPOSE", "TECLAS TRANSPONEN"));
+    static const char* shapesEn[Gen::NSHAPES] = {"WAVE", "RISE", "FALL", "QUESTION & ANSWER", "ARPEGGIO", "HOOK", "FEW NOTES", "BUSY"};
+    static const char* shapesEs[Gen::NSHAPES] = {"OLA", "SUBE", "BAJA", "PREGUNTA Y RESPUESTA", "ARPEGIO", "GANCHO", "POCAS NOTAS", "MUCHAS NOTAS"};
+    for (int i = 0; i < Gen::NSHAPES; ++i) shapeBox.changeItemText(i + 1, juce::String::fromUTF8(es ? shapesEs[i] : shapesEn[i]));
+    static const char* tgtEs[4] = {"BATER\xc3\x8d" "A", "ACID", "BAJO", "MELOD\xc3\x8d" "A"};
+    for (int i = 0; i < 4; ++i) targetBox.changeItemText(i + 1, juce::String::fromUTF8(es ? tgtEs[i] : kTargetNames[i]));
+    static const char* bankEs[] = {"TOCAR", "ACID", "BATER\xc3\x8d" "A", "BAJO", "MELOD\xc3\x8d" "A", "FX", "GROOVE", "MEZCLA"};
+    for (int b = 0; b < NBANKS; ++b) bankBtn[b].setButtonText(juce::String(b + 1) + " " + juce::String::fromUTF8(es ? bankEs[b] : kBankNames[b]));
+    for (int i = 0; i < 8; ++i) scene[i].setTooltip(T("Click: play this scene from the next bar. Shift-click: store the current pattern here.",
+                                                        "Clic: esta escena entra en el siguiente comp\xc3\xa1s. Shift + clic: guarda aqu\xc3\xad el patr\xc3\xb3n actual."));
+    if (help) { help.reset(); showHelp(true); }
+    content.repaint(); repaint();
+    for (auto* c : content.getChildren()) c->repaint();
+}
+
 void DfdEditor::showHelp(bool show) {
     if (show && help == nullptr) {
         help = std::make_unique<HelpPanel>([this] { juce::MessageManager::callAsync([sp = juce::Component::SafePointer<DfdEditor>(this)] { if (sp) sp->showHelp(false); }); });
@@ -487,7 +533,7 @@ void DfdEditor::resized() {
     // header
     presetBox.setBounds(480, 22, 300, 30); prevPreset.setBounds(448, 22, 30, 30); nextPreset.setBounds(782, 22, 30, 30);
     undoBtn.setBounds(826, 22, 64, 30); redoBtn.setBounds(894, 22, 64, 30); playBtn.setBounds(966, 22, 76, 30); dragMidi->setBounds(1050, 22, 130, 30);
-    helpBtn.setBounds(1118, 720, 26, 20); donateBtn.setBounds(1148, 720, 32, 20);
+    langBtn.setBounds(1080, 720, 34, 20); helpBtn.setBounds(1118, 720, 26, 20); donateBtn.setBounds(1148, 720, 32, 20);
     // ritual
     styleA.setBounds(34, 108, 242, 28); styleB.setBounds(34, 142, 242, 28);
     fusion.setBounds(40, 190, 100, 88); chaos.setBounds(170, 190, 100, 88);

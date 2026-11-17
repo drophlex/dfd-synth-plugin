@@ -69,5 +69,7 @@ private:
     juce::TextButton helpBtn{"?"}, donateBtn{juce::String::fromUTF8("\xe2\x99\xa5")};
     std::unique_ptr<HelpPanel> help;
     void showHelp(bool show);
+    void applyLanguage();
+    juce::TextButton langBtn{"ES"};
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DfdEditor)
 };
