@@ -2,6 +2,7 @@ name: build
 on:
   push:
     branches: [main]
+    paths-ignore: ["keygen-android/**", ".github/workflows/keygen-android.yml"]
   workflow_dispatch:
 permissions:
   contents: write
