@@ -56,9 +56,23 @@ int main(int argc, char** argv) {
     proc.setStateInformation(st.getData(), (int)st.getSize());
     check("state round trip restores the pattern", proc.engine.pat.t[1].s[0].notes[0] == before && proc.engine.pat.t[0].len == beforeLen);
 
-    // MIDI export
+    // MIDI export (after a moment of playing, so the restored state is in the engine)
+    { float pk; double r; run(0.3, pk, r); }
     auto f = proc.writeMidiFile(); juce::FileInputStream is(f); juce::MidiFile mf; bool rd = is.openedOk() && mf.readFrom(is);
-    check("MIDI export: 5 tracks (tempo + 4)", rd && mf.getNumTracks() == 5);
+    { int notes = 0; bool ch1 = true; if (rd && mf.getNumTracks() == 1) { auto* t = mf.getTrack(0); for (int i = 0; i < t->getNumEvents(); ++i) { const auto& m = t->getEventPointer(i)->message; if (m.isNoteOn()) { ++notes; ch1 &= m.getChannel() == 1; } } }
+      check("MIDI export: one track, every note on channel 1", rd && mf.getNumTracks() == 1 && notes > 8 && ch1); }
+    // WAV export: the loop as audio (twice through, the second pass kept)
+    { auto w = proc.writeWavFile(); juce::AudioFormatManager fm; fm.registerBasicFormats(); std::unique_ptr<juce::AudioFormatReader> rdr(fm.createReaderFor(w));
+      float pk = 0; if (rdr) { juce::AudioBuffer<float> b(2, (int)rdr->lengthInSamples); rdr->read(&b, 0, (int)rdr->lengthInSamples, 0, true, true); pk = b.getMagnitude(0, b.getNumSamples()); }
+      const double want = 48000.0 * 60.0 / proc.engine.pat.bpm / 4.0 * proc.engine.pat.t[0].len;
+      check("WAV export: one loop, 24-bit, audible, not clipped", rdr && rdr->bitsPerSample == 24 && std::abs((double)rdr->lengthInSamples - want) < 48000 * 60.0 / proc.engine.pat.bpm && pk > 0.05f && pk < 1.0f); }
+    // MIDI import: the exported clip dropped back in rebuilds a part
+    { const auto keepLen = proc.engine.pat.t[dfd::TR_LEAD].len; juce::MidiFile clip; juce::MidiMessageSequence sq;
+      const int ns[4] = {72, 75, 79, 82}; for (int i = 0; i < 4; ++i) { sq.addEvent(juce::MidiMessage::noteOn(1, ns[i], (juce::uint8)110), i * 96.0); sq.addEvent(juce::MidiMessage::noteOff(1, ns[i]), i * 96.0 + 20); }
+      sq.updateMatchedPairs(); clip.setTicksPerQuarterNote(96); clip.addTrack(sq);
+      auto cf = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("dfd_import_test.mid"); cf.deleteFile(); { juce::FileOutputStream os(cf); clip.writeTo(os); }
+      const bool ok = proc.importMidiFile(cf); const auto& L = proc.engine.pat.t[dfd::TR_LEAD];
+      check("MIDI import: a melody lands on LEAD, one note per beat, accented", ok && L.s[0].gate == 1 && L.s[0].notes[0] == 72 && L.s[4].notes[0] == 75 && L.s[12].notes[0] == 82 && L.s[0].acc && L.s[1].gate == 0); (void)keepLen; }
 
     // editor + screenshots
     proc.setCurrentProgram(6); juce::MessageManager::getInstance()->runDispatchLoopUntil(300);

@@ -158,7 +158,6 @@ juce::File DfdProcessor::writeMidiFile() {
     seq.addEvent(juce::MidiMessage::tempoMetaEvent((int)(60000000.0 / juce::jmax(40.0f, engine.pat.bpm))), 0);
     seq.addEvent(juce::MidiMessage::textMetaEvent(3, "Dark Funk Durcal Synt"), 0);
     for (int t = 0; t < NTRACKS; ++t) {
-        if (engine.mute[t]) continue;
         const auto& tr = engine.pat.t[t]; int len = juce::jmax(1, tr.len);
         for (int i = 0; i < len; ++i) {
             const auto& s = tr.s[i]; if (s.gate != 1) continue;
@@ -194,7 +193,7 @@ juce::String DfdProcessor::baseName() { return "DFD_" + juce::String(kStyles[eng
 juce::File DfdProcessor::writeWavFile() {
     const float rate = 48000.f;
     auto R = std::make_unique<dfd::Engine>(); R->prepare(rate);
-    R->p = engine.p; R->pat = engine.pat; for (int t = 0; t < NTRACKS; ++t) R->mute[t] = engine.mute[t];
+    R->p = engine.p; R->pat = engine.pat;   // the whole pattern (the pads' live mutes are a performance, not part of the clip)
     int steps = 1; for (int t = 0; t < NTRACKS; ++t) steps = juce::jmax(steps, engine.pat.t[t].len);
     const double bpm = juce::jmax(40.0f, lastBpm > 1 ? (float)lastBpm : engine.pat.bpm);
     const int len = (int)std::round(rate * 60.0 / bpm / 4.0 * steps);
