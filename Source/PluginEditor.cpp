@@ -277,7 +277,7 @@ public:
     void paint(juce::Graphics& g) override {
         auto r = getLocalBounds().toFloat().reduced(1); g.setColour(juce::Colour(0xff1d1916)); g.fillRoundedRectangle(r, 4);
         g.setColour(EMBER); g.drawRoundedRectangle(r, 4, 1.2f); g.setFont(Fonts::get().text(14, true)); g.setColour(BONE);
-        g.drawText(wav ? "\xe2\x87\xa2 WAV" : "\xe2\x87\xa2 MIDI", getLocalBounds(), juce::Justification::centred);
+        g.drawText(juce::String::fromUTF8(wav ? "\xe2\x87\xa2 WAV" : "\xe2\x87\xa2 MIDI"), getLocalBounds(), juce::Justification::centred);
     }
     void mouseDrag(const juce::MouseEvent& e) override {
         if (dragging || e.getDistanceFromDragStart() < 6) return;
