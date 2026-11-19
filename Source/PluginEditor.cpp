@@ -322,7 +322,7 @@ public:
             {"SCENES", "A-H come in at the end of the bar; Shift-click stores the current pattern in a scene."},
             {"NEXT", "3 NEXT gives 3 ideas for your melody: try 1, 2, 3 and KEEP the one you like."},
             {"KEYS", "Your keyboard plays the KEYS PLAY part, always in key (SCALE LOCK)."},
-            {"MIDI", "Drag DRAG MIDI into your DAW: 4 tracks ready to edit."},
+            {"MIDI · WAV", "Drag ⇢ MIDI (one channel) or ⇢ WAV (a loop) onto a track; drop a .mid on the plug-in to load it."},
             {"KEYLAB", "In Ableton it links by itself: knobs, faders, pads, keys and the screen."}};
         static const char* sp[][2] = {
             {"INVOCAR", "Elige dos estilos, ajusta FUSI\xc3\x93N y CAOS y pulsa INVOCAR: bater\xc3\xad" "a, acid, bajo y melod\xc3\xad" "a."},
@@ -331,7 +331,7 @@ public:
             {"ESCENAS", "A-H entran al final del comp\xc3\xa1s; Shift + clic guarda el patr\xc3\xb3n en una escena."},
             {"3 IDEAS", "3 IDEAS para tu melod\xc3\xad" "a: prueba 1, 2, 3 y pulsa QUEDAR en la que te guste."},
             {"TECLAS", "Tu teclado toca la parte de LAS TECLAS TOCAN, siempre en tono (EN ESCALA)."},
-            {"MIDI", "Arrastra ARRASTRA MIDI a tu DAW: 4 pistas listas para editar."},
+            {"MIDI · WAV", "Arrastra ⇢ MIDI (un canal) o ⇢ WAV (un loop) a una pista; suelta un .mid sobre el plug-in para cargarlo."},
             {"KEYLAB", "En Ableton se enlaza solo: perillas, faders, pads, teclas y pantalla."}};
         for (int i = 0; i < 8; ++i) {
             g.setColour(EMBER); g.setFont(Fonts::get().text(16, true)); g.drawText(es ? sp[i][0] : en[i][0], x, y, 118, 24, juce::Justification::centredLeft);
@@ -394,7 +394,7 @@ DfdEditor::DfdEditor(DfdProcessor& p) : AudioProcessorEditor(&p), proc(p) {
     nextPreset.onClick = [this] { proc.setCurrentProgram((proc.currentPreset + 1) % NPRESETS); presetBox.setSelectedId(proc.currentPreset + 1, juce::dontSendNotification); };
     undoBtn.onClick = [this] { proc.post(C_UNDO); }; redoBtn.onClick = [this] { proc.post(C_REDO); };
     playBtn.setClickingTogglesState(true); playBtn.onClick = [this] { proc.post(C_PLAY_TOGGLE); };
-    playBtn.setTooltip("Plays without the DAW's transport (the DAW's PLAY always drives it too)");
+    playBtn.setTooltip("Its own PLAY / STOP: the DAW's play never starts it; when both play it follows the DAW's bar");
     dragMidi = std::make_unique<DragMidiButton>(proc, false); add(*dragMidi);
     dragWav = std::make_unique<DragMidiButton>(proc, true); add(*dragWav);
     dragMidi->setTooltip(T("Drag the pattern onto a MIDI track (one channel)", "Arrastra el patr\xc3\xb3n a una pista MIDI (un canal)"));

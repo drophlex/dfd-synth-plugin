@@ -88,8 +88,10 @@ public:
     void process(float* outL, float* outR, int n, bool hostPlaying, double ppqStart, double hostBpm) {
         drainCommands();
         bpm = (float)(hostBpm > 1 ? hostBpm : pat.bpm);
-        bool playing = hostPlaying || internalPlay;
-        double ppq = hostPlaying ? ppqStart : internalPpq;
+        // like XO: only the plug-in's own PLAY starts and stops it; the DAW's play never does. While both play, it follows
+        // the DAW's position (so it stays on the DAW's bar)
+        bool playing = internalPlay;
+        double ppq = hostPlaying && internalPlay ? ppqStart : internalPpq;
         const double ppqPerSample = bpm / 60.0 / sr;
         float peak = 0;
         for (int i = 0; i < n; ++i) {
@@ -100,7 +102,7 @@ public:
             float l, r; renderSample(l, r);
             outL[i] = l; outR[i] = r; peak = std::max(peak, std::fabs(l));
         }
-        if (!hostPlaying && internalPlay) internalPpq = ppq;
+        if (internalPlay) internalPpq = ppq;
         if (!playing) internalPpq = 0;
         level.store(peak);
         updateIntensity(peak, playing);

@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
     std::string dir = argc > 1 ? argv[1] : "";
     for (int s = 0; s < dfd::NSTYLES; ++s) {
         dfd::Engine e; e.p.styleA = s; e.p.styleB = (s + 3) % dfd::NSTYLES; e.p.fusion = 0.25f; e.p.chaos = 0.5f;
-        e.prepare((float)sr);
+        e.prepare((float)sr); e.internalPlay = true;   // its own PLAY (the DAW's play alone does not start it)
         e.post({dfd::C_SUMMON});
         float bpm = 0; std::vector<float> L, R; float peak = 0; double ms = 0; bool nan = false;
         double ppq = 0; const int blk = 256; float out[2][blk];

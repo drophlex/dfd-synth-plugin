@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
 
     DfdProcessor proc; FakeHead head; proc.setPlayHead(&head);
     const double sr = 48000; const int bs = 512;
-    proc.setPlayConfigDetails(0, 2, sr, bs); proc.prepareToPlay(sr, bs);
+    proc.setPlayConfigDetails(0, 2, sr, bs); proc.prepareToPlay(sr, bs); proc.engine.internalPlay = true;   // its own PLAY (the DAW's play alone does not start it)
     juce::AudioBuffer<float> buf(2, bs); juce::MidiBuffer midi;
     auto run = [&](double seconds, float& peak, double& rms) {
         peak = 0; double acc = 0; long n = 0;
@@ -56,6 +56,7 @@ int main(int argc, char** argv) {
     proc.setStateInformation(st.getData(), (int)st.getSize());
     check("state round trip restores the pattern", proc.engine.pat.t[1].s[0].notes[0] == before && proc.engine.pat.t[0].len == beforeLen);
 
+    { proc.engine.internalPlay = false; float pk; double r; run(4.0, pk, r); run(0.5, pk, r); check("the DAW's play alone does not start it (like XO)", pk < 0.02f); proc.engine.internalPlay = true; }
     // MIDI export (after a moment of playing, so the restored state is in the engine)
     { float pk; double r; run(0.3, pk, r); }
     auto f = proc.writeMidiFile(); juce::FileInputStream is(f); juce::MidiFile mf; bool rd = is.openedOk() && mf.readFrom(is);
