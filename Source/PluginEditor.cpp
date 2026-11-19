@@ -271,22 +271,22 @@ private:
 };
 
 // ================================================================ drag the pattern into Ableton as MIDI
-class DragMidiButton : public juce::Component {
+class DragMidiButton : public juce::Component, public juce::SettableTooltipClient {   // drags a file the processor writes (the pattern as MIDI, or as WAV) onto a DAW track
 public:
-    explicit DragMidiButton(DfdProcessor& p) : proc(p) { setMouseCursor(juce::MouseCursor::DraggingHandCursor); }
+    DragMidiButton(DfdProcessor& p, bool audio) : proc(p), wav(audio) { setMouseCursor(juce::MouseCursor::DraggingHandCursor); }
     void paint(juce::Graphics& g) override {
         auto r = getLocalBounds().toFloat().reduced(1); g.setColour(juce::Colour(0xff1d1916)); g.fillRoundedRectangle(r, 4);
-        g.setColour(EMBER); g.drawRoundedRectangle(r, 4, 1.2f); g.setFont(Fonts::get().text(15, true)); g.setColour(BONE);
-        g.drawText(T("\xe2\x87\xa2 DRAG MIDI", "\xe2\x87\xa2 ARRASTRA MIDI"), getLocalBounds(), juce::Justification::centred);
+        g.setColour(EMBER); g.drawRoundedRectangle(r, 4, 1.2f); g.setFont(Fonts::get().text(14, true)); g.setColour(BONE);
+        g.drawText(wav ? "\xe2\x87\xa2 WAV" : "\xe2\x87\xa2 MIDI", getLocalBounds(), juce::Justification::centred);
     }
     void mouseDrag(const juce::MouseEvent& e) override {
         if (dragging || e.getDistanceFromDragStart() < 6) return;
-        dragging = true; auto f = proc.writeMidiFile();
+        dragging = true; auto f = wav ? proc.writeWavFile() : proc.writeMidiFile();
         juce::DragAndDropContainer::performExternalDragDropOfFiles({f.getFullPathName()}, false, this, [this] { dragging = false; });
     }
     void mouseUp(const juce::MouseEvent&) override { dragging = false; }
 private:
-    DfdProcessor& proc; bool dragging = false;
+    DfdProcessor& proc; bool wav; bool dragging = false;
 };
 
 // ================================================================ help: a quick guide, the links and (small) the donation
@@ -395,7 +395,10 @@ DfdEditor::DfdEditor(DfdProcessor& p) : AudioProcessorEditor(&p), proc(p) {
     undoBtn.onClick = [this] { proc.post(C_UNDO); }; redoBtn.onClick = [this] { proc.post(C_REDO); };
     playBtn.setClickingTogglesState(true); playBtn.onClick = [this] { proc.post(C_PLAY_TOGGLE); };
     playBtn.setTooltip("Plays without the DAW's transport (the DAW's PLAY always drives it too)");
-    dragMidi = std::make_unique<DragMidiButton>(proc); add(*dragMidi);
+    dragMidi = std::make_unique<DragMidiButton>(proc, false); add(*dragMidi);
+    dragWav = std::make_unique<DragMidiButton>(proc, true); add(*dragWav);
+    dragMidi->setTooltip(T("Drag the pattern onto a MIDI track (one channel)", "Arrastra el patr\xc3\xb3n a una pista MIDI (un canal)"));
+    dragWav->setTooltip(T("Drag the pattern as audio onto a track (it loops)", "Arrastra el patr\xc3\xb3n como audio a una pista (hace loop)"));
     // ritual
     for (auto* c : {&styleA, &styleB}) { for (int i = 0; i < NSTYLES; ++i) c->addItem(kStyleNames[i], i + 1); add(*c); }
     for (int i = 0; i < NMOODS; ++i) moodBox.addItem(kMoodNames[i], i + 1); add(moodBox);
@@ -521,7 +524,7 @@ void DfdEditor::resized() {
     content.setTransform(juce::AffineTransform::scale(s));
     // header
     presetBox.setBounds(480, 22, 300, 30); prevPreset.setBounds(448, 22, 30, 30); nextPreset.setBounds(782, 22, 30, 30);
-    undoBtn.setBounds(826, 22, 64, 30); redoBtn.setBounds(894, 22, 64, 30); playBtn.setBounds(966, 22, 76, 30); dragMidi->setBounds(1050, 22, 130, 30);
+    undoBtn.setBounds(826, 22, 64, 30); redoBtn.setBounds(894, 22, 64, 30); playBtn.setBounds(966, 22, 76, 30); dragMidi->setBounds(1050, 22, 64, 30); dragWav->setBounds(1118, 22, 62, 30);
     langBtn.setBounds(1080, 720, 34, 20); helpBtn.setBounds(1118, 720, 26, 20); donateBtn.setBounds(1148, 720, 32, 20);
     // ritual
     styleA.setBounds(34, 108, 242, 28); styleB.setBounds(34, 142, 242, 28);
@@ -557,4 +560,10 @@ void DfdEditor::timerCallback() {
     juce::String st = juce::String(proc.engine.lastAction.load()) + juce::String::fromUTF8("  \xc2\xb7  ") + juce::String((int)proc.engine.curBpm()) + " BPM";
     if (st != status) { status = st; content.repaint(700, 716, 500, 30); }
     if (presetBox.getSelectedId() != proc.currentPreset + 1) presetBox.setSelectedId(proc.currentPreset + 1, juce::dontSendNotification);
+}
+
+// a .mid dropped anywhere on the plug-in (from the Finder or from Ableton) becomes a part of the pattern
+bool DfdEditor::isInterestedInFileDrag(const juce::StringArray& files) { for (auto& f : files) if (f.endsWithIgnoreCase(".mid") || f.endsWithIgnoreCase(".midi")) return true; return false; }
+void DfdEditor::filesDropped(const juce::StringArray& files, int, int) {
+    for (auto& f : files) if (f.endsWithIgnoreCase(".mid") || f.endsWithIgnoreCase(".midi")) { proc.importMidiFile(juce::File(f)); repaint(); break; }
 }

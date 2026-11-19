@@ -35,7 +35,11 @@ public:
     juce::AudioProcessorValueTreeState apvts;
     dfd::Engine engine;
     void post(int type, int a = 0, int b = 0, int c = 0) { engine.post({type, a, b, c}); }
-    juce::File writeMidiFile();          // the current pattern as a .mid (drag it into Ableton)
+    juce::File writeMidiFile();          // the current pattern as a .mid on one channel (drag it into Ableton)
+    juce::File writeWavFile();           // the current pattern as a loopable 24-bit WAV (drag it onto an audio track)
+    bool importMidiFile(const juce::File&);   // a .mid dropped on the plug-in becomes a part of the pattern
+    double lastBpm = 0;
+    static juce::File tempDir(); juce::String baseName();
     void setParam(const char* id, float plainValue);
     float getParam(const char* id) const;
     int currentPreset = 0;

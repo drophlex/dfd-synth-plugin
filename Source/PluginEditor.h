@@ -24,8 +24,10 @@ class PadView;
 class DragMidiButton;
 class HelpPanel;
 
-class DfdEditor : public juce::AudioProcessorEditor, private juce::Timer {
+class DfdEditor : public juce::AudioProcessorEditor, public juce::FileDragAndDropTarget, private juce::Timer {
 public:
+    bool isInterestedInFileDrag(const juce::StringArray&) override;
+    void filesDropped(const juce::StringArray&, int, int) override;
     explicit DfdEditor(DfdProcessor&);
     ~DfdEditor() override;
     void paint(juce::Graphics&) override;
@@ -43,7 +45,7 @@ private:
 
     // header
     juce::ComboBox presetBox; juce::TextButton prevPreset{"<"}, nextPreset{">"}, undoBtn{"UNDO"}, redoBtn{"REDO"}, playBtn{"PLAY"};
-    std::unique_ptr<DragMidiButton> dragMidi;
+    std::unique_ptr<DragMidiButton> dragMidi, dragWav;
     // ritual
     juce::ComboBox styleA, styleB, moodBox, keyBox;
     juce::Slider fusion, chaos;

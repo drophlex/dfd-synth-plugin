@@ -70,7 +70,7 @@ void DfdProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuff
         if (auto pos = ph->getPosition()) {
             playing = pos->getIsPlaying();
             if (auto p = pos->getPpqPosition()) ppq = *p;
-            if (auto b = pos->getBpm()) bpm = *b;
+            if (auto b = pos->getBpm()) { bpm = *b; lastBpm = bpm; }
         }
     }
     const int n = buffer.getNumSamples();
@@ -148,18 +148,18 @@ void DfdProcessor::setStateInformation(const void* data, int size) {
     currentPreset = juce::jlimit(0, NPRESETS - 1, xml->getIntAttribute("preset", 0));
 }
 
-// ---------------------------------------------------------------- the pattern as a MIDI file (4 tracks; drums on channel 10, GM notes)
+// ---------------------------------------------------------------- the pattern as a MIDI file: one track, one channel (1),
+// every part together (drums on their GM notes), as one MIDI track in Ableton expects
 juce::File DfdProcessor::writeMidiFile() {
     static const int gm[NLANES] = {36, 38, 39, 42, 46, 45, 37, 56};
     juce::MidiFile mf; mf.setTicksPerQuarterNote(96);
-    const int stepT = 24;
-    juce::MidiMessageSequence tempo;
-    tempo.addEvent(juce::MidiMessage::tempoMetaEvent((int)(60000000.0 / juce::jmax(40.0f, engine.pat.bpm))), 0);
-    mf.addTrack(tempo);
+    const int stepT = 24, ch = 1;
+    juce::MidiMessageSequence seq;
+    seq.addEvent(juce::MidiMessage::tempoMetaEvent((int)(60000000.0 / juce::jmax(40.0f, engine.pat.bpm))), 0);
+    seq.addEvent(juce::MidiMessage::textMetaEvent(3, "Dark Funk Durcal Synt"), 0);
     for (int t = 0; t < NTRACKS; ++t) {
-        juce::MidiMessageSequence seq; const auto& tr = engine.pat.t[t]; int len = juce::jmax(1, tr.len);
-        int ch = t == TR_DRUMS ? 10 : t + 1;
-        seq.addEvent(juce::MidiMessage::textMetaEvent(3, kTrackNames[t]), 0);
+        if (engine.mute[t]) continue;
+        const auto& tr = engine.pat.t[t]; int len = juce::jmax(1, tr.len);
         for (int i = 0; i < len; ++i) {
             const auto& s = tr.s[i]; if (s.gate != 1) continue;
             int on = i * stepT;
@@ -179,16 +179,71 @@ juce::File DfdProcessor::writeMidiFile() {
                 }
             }
         }
-        seq.updateMatchedPairs();
-        mf.addTrack(seq);
     }
-    auto dir = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("DarkFunkDurcal");
-    dir.createDirectory();
-    auto f = dir.getChildFile("DFD_" + juce::String(kStyles[engine.p.styleA % NSTYLES].name) + "_" + juce::String((int)engine.pat.bpm) + "bpm_"
-                              + juce::Time::getCurrentTime().formatted("%H%M%S") + ".mid");
-    juce::FileOutputStream os(f);
-    if (os.openedOk()) mf.writeTo(os);
+    seq.sort(); seq.updateMatchedPairs(); mf.addTrack(seq);
+    auto f = tempDir().getChildFile(baseName() + ".mid");
+    f.deleteFile(); { juce::FileOutputStream os(f); if (os.openedOk()) mf.writeTo(os); }
     return f;
+}
+
+juce::File DfdProcessor::tempDir() { auto d = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("DarkFunkDurcal"); d.createDirectory(); return d; }
+juce::String DfdProcessor::baseName() { return "DFD_" + juce::String(kStyles[engine.p.styleA % NSTYLES].name) + "_" + juce::String((int)engine.pat.bpm) + "bpm_" + juce::Time::getCurrentTime().formatted("%H%M%S"); }
+
+// ---------------------------------------------------------------- the pattern as audio: a fresh engine with the same sound and
+// pattern plays it twice and the second pass is kept, so the echo and reverb tails of the end ring into the start
+juce::File DfdProcessor::writeWavFile() {
+    const float rate = 48000.f;
+    auto R = std::make_unique<dfd::Engine>(); R->prepare(rate);
+    R->p = engine.p; R->pat = engine.pat; for (int t = 0; t < NTRACKS; ++t) R->mute[t] = engine.mute[t];
+    int steps = 1; for (int t = 0; t < NTRACKS; ++t) steps = juce::jmax(steps, engine.pat.t[t].len);
+    const double bpm = juce::jmax(40.0f, lastBpm > 1 ? (float)lastBpm : engine.pat.bpm);
+    const int len = (int)std::round(rate * 60.0 / bpm / 4.0 * steps);
+    R->internalPlay = true;
+    juce::AudioBuffer<float> out(2, len); std::vector<float> l(512), r(512); int n = 0;
+    while (n < 2 * len) { const int k = juce::jmin(512, 2 * len - n); R->process(l.data(), r.data(), k, false, 0, bpm);
+        for (int i = 0; i < k; ++i) { const int j = n + i - len; if (j >= 0) { out.setSample(0, j, l[(size_t)i]); out.setSample(1, j, r[(size_t)i]); } } n += k; }
+    auto f = tempDir().getChildFile(baseName() + ".wav"); f.deleteFile();
+    juce::WavAudioFormat wav;
+    if (auto os = std::unique_ptr<juce::OutputStream>(f.createOutputStream()))
+        if (auto w = std::unique_ptr<juce::AudioFormatWriter>(wav.createWriterFor(os.get(), rate, 2, 24, {}, 0))) { os.release(); w->writeFromAudioSampleBuffer(out, 0, len); }
+    return f;
+}
+
+// ---------------------------------------------------------------- a MIDI clip dropped on the plug-in becomes a part of the
+// pattern: drums (channel 10, or only drum notes) fill the drum lanes; a melody goes to BASS, ACID or LEAD by its register
+bool DfdProcessor::importMidiFile(const juce::File& file) {
+    juce::FileInputStream in(file); if (!in.openedOk()) return false;
+    juce::MidiFile mf; if (!mf.readFrom(in)) return false;
+    const int tpq = mf.getTimeFormat(); if (tpq <= 0) return false;
+    struct N { double at, end; int note, vel, ch; }; std::vector<N> notes;
+    for (int t = 0; t < mf.getNumTracks(); ++t) {
+        juce::MidiMessageSequence seq(*mf.getTrack(t)); seq.updateMatchedPairs();
+        for (int i = 0; i < seq.getNumEvents(); ++i) { auto* e = seq.getEventPointer(i); const auto& m = e->message; if (!m.isNoteOn()) continue;
+            const double at = m.getTimeStamp() / tpq * 4.0, end = e->noteOffObject ? e->noteOffObject->message.getTimeStamp() / tpq * 4.0 : at + 0.5;
+            notes.push_back({at, end, m.getNoteNumber(), m.getVelocity(), m.getChannel()}); }
+    }
+    if (notes.empty()) return false;
+    std::sort(notes.begin(), notes.end(), [](const N& a, const N& b) { return a.at < b.at; });
+    static const int gm[NLANES] = {36, 38, 39, 42, 46, 45, 37, 56};
+    bool drums = true; for (auto& n : notes) if (n.ch != 10 && (n.note < 35 || n.note > 81)) { drums = false; break; }
+    if (!drums) { bool any10 = false; for (auto& n : notes) any10 |= n.ch == 10; drums = any10; }
+    double last = 0; for (auto& n : notes) last = std::max(last, n.end);
+    const int len = juce::jlimit(1, (int)MAXSTEPS, (int)std::ceil(std::max(16.0, std::min((double)MAXSTEPS, std::round(last / 16.0) * 16.0))));
+    std::vector<int> pitches; for (auto& n : notes) pitches.push_back(n.note); std::nth_element(pitches.begin(), pitches.begin() + (long)pitches.size() / 2, pitches.end());
+    const int median = pitches[pitches.size() / 2], tr = drums ? TR_DRUMS : median < 45 ? TR_BASS : median < 60 ? TR_ACID : TR_LEAD;
+    suspendProcessing(true);
+    auto& T = engine.pat.t[tr]; T.clear(); T.len = len;
+    for (auto& n : notes) {
+        const int i = (int)std::round(n.at); if (i < 0 || i >= len) continue; auto& s = T.s[i];
+        if (drums) { int best = 0, bd = 99; for (int L = 0; L < NLANES; ++L) { const int d = std::abs(gm[L] - n.note); if (d < bd) { bd = d; best = L; } }
+            s.hits |= (uint16_t)(1u << best); if (n.vel >= 100) s.accHits |= (uint16_t)(1u << best); s.gate = 1; s.vel = (uint8_t)juce::jmax((int)s.vel, n.vel); continue; }
+        if (s.gate == 1 && s.n >= 1) { if (tr == TR_LEAD && s.n < 4) s.notes[s.n++] = (uint8_t)n.note; continue; }
+        if (s.gate == 2) { int k = i - 1; while (k > 0 && T.s[k].gate == 2) --k; T.s[k].slide = true; }   // it cuts a held note: legato
+        s.gate = 1; s.n = 1; s.notes[0] = (uint8_t)n.note; s.vel = (uint8_t)n.vel; s.acc = n.vel >= 100; s.slide = false;
+        for (int k = i + 1; k < len && k < (int)std::round(n.end); ++k) { if (T.s[k].gate == 1) { s.slide = true; break; } T.s[k].gate = 2; T.s[k].n = 1; T.s[k].notes[0] = (uint8_t)n.note; }
+    }
+    suspendProcessing(false);
+    return true;
 }
 
 juce::AudioProcessorEditor* DfdProcessor::createEditor() { return new DfdEditor(*this); }
