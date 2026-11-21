@@ -20,6 +20,8 @@ Acid · breaks · warped funk · IDM — always in key, made to play live</p>
 | **Ableton + KeyLab Essential** | Plug it in: Live links the `DFD_KeyLab_Essential` script by itself (screen, knobs, faders, pads, keys, transport). |
 | **Other DAWs** | Logic, FL Studio, Bitwig, Reaper, Cubase, Studio One, GarageBand: find it as a *Polaris Sound Lab* instrument. |
 
+**Manual (PDF):** [English](manual/DarkFunkDurcal-Plugin-Manual-EN.pdf) · [Español](manual/DarkFunkDurcal-Plugin-Manual-ES.pdf) · [both / ambos](manual/DarkFunkDurcal-Plugin-Manual-EN-ES.pdf)
+
 It comes in **English**; the **ES** button in the bottom-right corner switches it to **Spanish**. **?** opens the quick guide.
 Guide with pictures: **https://drophlex.github.io/dark-funk-durcal-synt-fm1/plugin.html**
 
